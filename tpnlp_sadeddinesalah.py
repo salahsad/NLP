@@ -23,13 +23,6 @@ dataframe["review"] = dataframe["review"].str.replace(r'[^\w\s]','',regex=True)
 dataframe ["review"]= dataframe["review"].str.lower()
 dataframe
 
-#supprimer les stop words
-import nltk
-from nltk.corpus import stopwords
-nltk.download('stopwords')
-liststop = set(stopwords.words('english'))
-dataframe["review"] = dataframe["review"].apply(lambda x : ' '.join([mot for mot in x.split() if mot not in liststop]))
-
 import nltk
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
@@ -43,12 +36,12 @@ all_text = ' '.join(dataframe['review'])
 words = all_text.split()
 word_counts = Counter(words)
 words_at_least_5 = [word for word, count in word_counts.items() if count >= 5]
-
 #tokenization and transform to sequence
 tokenizer = Tokenizer(num_words=10000)
 tokenizer.fit_on_texts(dataframe["review"])
 X = tokenizer.texts_to_sequences(dataframe["review"])
 X = pad_sequences(X, maxlen=200, padding='post')
+print(len(words_at_least_5))
 
 from sklearn.model_selection import train_test_split
 import tensorflow as tf
@@ -60,6 +53,8 @@ le.fit(dataframe["sentiment"])
 list(le.classes_)
 dataframe["sentiment"] = pd.Series(le.transform(dataframe["sentiment"]))
 X_train, X_test, y_train, y_test = train_test_split(X, dataframe["sentiment"], test_size=0.2, random_state=42)
+
+
 
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, Dropout
@@ -78,5 +73,21 @@ lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, min
 model_lstm.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 model_lstm.fit(X_train,y_train, epochs=10,validation_data=(X_test,y_test),batch_size=64,callbacks=[early_stopping, lr_scheduler])
 
+#avec attention
+from tensorflow.keras.layers import Attention,Input,LSTM, Attention, Dense, Dropout,Embedding
+from tensorflow.keras.models import Model
+input_layer = Input(shape=(200,))
+embedding_layer = Embedding(input_dim=10000, output_dim=128)(input_layer)
+lstm_layer = LSTM(128, return_sequences=True)(embedding_layer)
+attention_layer = Attention()([lstm_layer, lstm_layer])
+lstm_layer_2 = LSTM(64)(attention_layer)
+dropout_layer = Dropout(0.2)(lstm_layer_2)
+output_layer = Dense(1, activation='sigmoid')(dropout_layer)
+
+model_lstm_attention = Model(inputs=input_layer, outputs=output_layer)
+model_lstm_attention.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
+model_lstm_attention.fit(X_train, y_train, epochs=10, validation_data=(X_test, y_test), batch_size=64, callbacks=[early_stopping, lr_scheduler])
+
 #sauvegarde
 model_lstm.save('sentiment_analysis_model.h5')
+
