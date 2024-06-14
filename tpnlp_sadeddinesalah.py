@@ -77,3 +77,6 @@ early_stopping = EarlyStopping(monitor='val_loss', patience=5, restore_best_weig
 lr_scheduler = ReduceLROnPlateau(monitor='val_loss', factor=0.1, patience=3, min_lr=0.0001)
 model_lstm.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
 model_lstm.fit(X_train,y_train, epochs=10,validation_data=(X_test,y_test),batch_size=64,callbacks=[early_stopping, lr_scheduler])
+
+#sauvegarde
+model_lstm.save('sentiment_analysis_model.h5')
